@@ -92,7 +92,7 @@ var Game = {
 
         __setupLevel();
         var geometry = new THREE.BoxGeometry(20, 20, 20);
-        var material = new THREE.MeshLambertMaterial({color: 0xadadad});
+        var material = new THREE.MeshStandardMaterial({color: 0xadadad});
 
         var cube = new THREE.Mesh(geometry, material);
         Game.current_scene.add(cube);
@@ -121,6 +121,13 @@ var __tasksCall = function() {
 
 $(document).ready(function() {
     Game.initialize();
+    var gui = new dat.GUI();
+
+    var cameraGui = gui.addFolder("camera position");
+    cameraGui.add(Game.current_camera.position, 'x');
+    cameraGui.add(Game.current_camera.position, 'y');
+    cameraGui.add(Game.current_camera.position, 'z');
+    cameraGui.open();
 });
 
 
@@ -128,13 +135,7 @@ var __setupLevel = function() {
 
 };
 // dat gui
-var gui = new dat.GUI();
 
-var cameraGui = gui.addFolder("camera position");
-cameraGui.add(Game.current_camera.position, 'x');
-cameraGui.add(camera.position, 'y');
-cameraGui.add(camera.position, 'z');
-cameraGui.open();
 //
 
 
