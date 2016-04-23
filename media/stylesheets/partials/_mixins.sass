@@ -1,0 +1,33 @@
+@import "../bootstrap/variables"
+
+=bp-max-lg
+  @media only screen and (max-width: $screen-lg)
+    @content
+
+=bp-max-md
+  @media only screen and (max-width: $screen-md)
+    @content
+
+=bp-max-sm
+  @media only screen and (max-width: $screen-sm)
+    @content
+
+=bp-max-xs
+  @media only screen and (max-width: $screen-xs)
+    @content
+
+=keyframes($name)
+  @-webkit-keyframes #{$name}
+    @content
+  @-moz-keyframes #{$name}
+    @content
+  @-ms-keyframes #{$name}
+    @content
+  @keyframes #{$name}
+    @content
+
+=_animation($name, $props)
+  -ms-animation: $name $props
+  -moz-animation: $name $props
+  -webkit-animation: $name $props
+  animation: $name $props

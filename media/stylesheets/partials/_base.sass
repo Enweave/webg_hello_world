@@ -1,0 +1,35 @@
+@import mixins
+
+$footer-height: 45px
+
+html, body
+  height: 100%
+  width: 100%
+
+.main-content-wrapper
+  width: 100%
+  min-height: 100%
+  .footer-placeholder
+    width: 100%
+    height: $footer-height
+
+.footer-wrapper
+  width: 100%
+  background: $navbar-default-bg
+  color: $navbar-default-color
+  min-height: $footer-height
+  margin-top: -$footer-height
+  padding: 15px 0px
+
+textarea.form-control
+  resize: vertical
+
++keyframes(spin_it)
+  0%
+    transform: rotateZ(0deg)
+  100%
+    transform: rotateZ(360deg)
+
+.spin_it
+  transform-origin: 50% 50%
+  +_animation(spin_it, 1s linear infinite)
