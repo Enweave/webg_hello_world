@@ -6,5 +6,5 @@ __pycache__/
 *.css.map
 .sass-cache*
 
-
+.vscode/
 
