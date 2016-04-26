@@ -3,7 +3,7 @@
 var Game = {
     settings : {
         aspect_desktop: 16/9,
-        default_width: 800,
+        default_width: 1024,
         fps_limit: 60
     },
     renderer: undefined,
@@ -37,7 +37,7 @@ var Game = {
     setupScene: function() {
         Game.current_scene = new THREE.Scene();
         var light = new THREE.PointLight(0xFFFFFF);
-        light.position.set(10, 0, 25);
+        light.position.set(500, 500, 1000);
         light.lookAt(0,0,0);
         Game.current_scene.add(light);
         Game.objects.lights[Game.counters.lights_global_counter] = light;
@@ -50,7 +50,7 @@ var Game = {
             0.1,
             1000
         );
-        camera.position.z = 100;
+        camera.position.z = 200;
         camera.lookAt(0,0,0);
         Game.current_camera = camera;
     },
@@ -120,7 +120,7 @@ $(document).ready(function() {
     var cameraGui = gui.addFolder("camera position");
     cameraGui.add(Game.current_camera.position, 'x');
     cameraGui.add(Game.current_camera.position, 'y');
-    cameraGui.add(Game.current_camera.position, 'z');
+    cameraGui.add(Game.current_camera.position, 'z',0,1000);
     cameraGui.open();
 });
 
@@ -130,18 +130,20 @@ var __setupLevel = function() {
     var testorb2 = makeOrb(8,0xff0000);
     testorb2.setPosition({x:20,y:20});
     Game.current_scene.add(testorb2.mesh);
+
+    Game.current_scene.add(makeWalls());
 };
 
 
 // TODO: remove from global
 var ORB_GLOBAL_COUNTER = 0;
 
-var orbs = {}
+var orbs = {};
 
 var makeOrb = function(volume, color) {
     color = typeof(color) === "undefined" ? 0xadadad : color;
     volume = typeof(volume) === "undefined" ? 10 : volume;
-    var material = new THREE.MeshBasicMaterial( {color: color} );
+    var material = new THREE.MeshStandardMaterial( {color: color, roughness: 0.1, metalness: 0.1 } );
     var geometry = new THREE.SphereGeometry( volume, 12, 12 );
     var new_orb = {
         id: ORB_GLOBAL_COUNTER,
@@ -164,4 +166,29 @@ var makeOrb = function(volume, color) {
 
     ORB_GLOBAL_COUNTER++;
     return new_orb;
-}
+};
+
+
+var wall_width = 10;
+var wall_length = 1000;
+var makeWalls = function() {
+    var walls = new THREE.Object3D();
+
+    var material = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
+
+    var north_wall = new THREE.Mesh( new THREE.BoxGeometry( wall_length, wall_width, 12 ), material );
+    walls.add(north_wall);
+    var east_wall = new THREE.Mesh( new THREE.BoxGeometry( wall_width, wall_length, 12 ), material );
+    walls.add(east_wall);
+
+    var south_wall = new THREE.Mesh( new THREE.BoxGeometry( wall_length, wall_width, 12 ), material );
+    walls.add(south_wall);
+    var west_wall = new THREE.Mesh( new THREE.BoxGeometry( wall_width, wall_length, 12 ), material );
+    walls.add(west_wall);
+
+    north_wall.position.y = wall_length/2 + wall_width/2;
+    east_wall.position.x = wall_length/2 + wall_width/2;
+    south_wall.position.y = -wall_length/2 - wall_width/2;
+    west_wall.position.x = -wall_length/2 -wall_width/2;
+    return walls;
+};
