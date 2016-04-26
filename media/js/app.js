@@ -38,6 +38,7 @@ var Game = {
         Game.current_scene = new THREE.Scene();
         var light = new THREE.PointLight(0xFFFFFF);
         light.position.set(10, 0, 25);
+        light.lookAt(0,0,0);
         Game.current_scene.add(light);
         Game.objects.lights[Game.counters.lights_global_counter] = light;
     },
@@ -50,6 +51,7 @@ var Game = {
             1000
         );
         camera.position.z = 100;
+        camera.lookAt(0,0,0);
         Game.current_camera = camera;
     },
 
@@ -91,15 +93,7 @@ var Game = {
         Game.setupCamera();
 
         __setupLevel();
-        var geometry = new THREE.BoxGeometry(20, 20, 20);
-        var material = new THREE.MeshStandardMaterial({color: 0xadadad});
 
-        var cube = new THREE.Mesh(geometry, material);
-        Game.current_scene.add(cube);
-
-//        Game.addTask(function(){
-//            cube.rotation.y+=0.01;
-//        });
 
         Game.startMainLoop();
     }
@@ -132,11 +126,42 @@ $(document).ready(function() {
 
 
 var __setupLevel = function() {
-
+    Game.current_scene.add(makeOrb().mesh);
+    var testorb2 = makeOrb(8,0xff0000);
+    testorb2.setPosition({x:20,y:20});
+    Game.current_scene.add(testorb2.mesh);
 };
-// dat gui
-
-//
 
 
+// TODO: remove from global
+var ORB_GLOBAL_COUNTER = 0;
 
+var orbs = {}
+
+var makeOrb = function(volume, color) {
+    color = typeof(color) === "undefined" ? 0xadadad : color;
+    volume = typeof(volume) === "undefined" ? 10 : volume;
+    var material = new THREE.MeshBasicMaterial( {color: color} );
+    var geometry = new THREE.SphereGeometry( volume, 12, 12 );
+    var new_orb = {
+        id: ORB_GLOBAL_COUNTER,
+        x: 0,
+        y: 0,
+        volume: volume,
+        impulse: 0,
+        direction: 0,
+        mesh: new THREE.Mesh( geometry, material ),
+        setPosition: function(args) {
+            new_orb.x = typeof(args.x) === "undefined" ? new_orb.x : args.x;
+            new_orb.y = typeof(args.y) === "undefined" ? new_orb.y : args.y;
+            new_orb.mesh.position.x = new_orb.x;
+            new_orb.mesh.position.y = new_orb.y;
+        }
+
+    };
+
+    orbs[ORB_GLOBAL_COUNTER] = new_orb;
+
+    ORB_GLOBAL_COUNTER++;
+    return new_orb;
+}
