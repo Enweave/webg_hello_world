@@ -3,8 +3,8 @@
 var MIN_VELOCITY = 0.1;
 
 var clampVelocity = function (new_velocity) {
-    // return - MIN_VELOCITY < new_velocity && new_velocity < MIN_VELOCITY ? 0 : new_velocity;
-    return new_velocity;
+    return - MIN_VELOCITY < new_velocity && new_velocity < MIN_VELOCITY ? 0 : new_velocity;
+    // return new_velocity;
 };
 
 var CollisionResponce = function (e, a, b) {
