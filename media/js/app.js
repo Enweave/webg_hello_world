@@ -1,6 +1,6 @@
 "use strict";
 
-var MINIMAL_VOLUME = 1;
+var MINIMAL_VOLUME = 8;
 var MIN_VELOCITY = 0.1;
 
 var DEFAULT_ORB_WIDTH_SEGMENTS = 22;
@@ -9,8 +9,8 @@ var DEFAULT_ORB_HEIGHT_SEGEMNTS = 22;
 var RESTITUTION_WALL = 0.9;
 var RESTITUTION_ORB = 0.6;
 
-var WALL_WIDTH = 2;
-var WALL_LENGTH = 300;
+var WALL_WIDTH = 10;
+var WALL_LENGTH = 500;
 var WALL_HEIGHT = 2;
 
 var INITIAL_CAMERA_POSITION_Z = 860;
@@ -196,7 +196,7 @@ $(document).ready(function () {
         );
     });
 
-    var gui = new dat.GUI();
+    var gui = new dat.GUI({ width: 320 });
 
     var cameraGui = gui.addFolder("camera position");
     cameraGui.add(Game.current_camera.position, "x", -600, 600).listen();
@@ -207,26 +207,30 @@ $(document).ready(function () {
     gameGui.add(Game, "is_running").listen();
     gameGui.add(Game.settings, "fps_limit", 1, 60);
     gameGui.add(Game, "restart");
+    gameGui.add(window, "RESTITUTION_ORB",0,1);
+    gameGui.add(window, "RESTITUTION_WALL",0,1);
     gameGui.open();
 });
 
 
 var __setupLevel = function () {
     Game.container = makeWalls();
-
-    var testorb1 = makeOrb(30, 0xff0000);
+    Game.current_scene.add(Game.container.mesh);
+    
+    var testorb1 = makeOrb(30, 0x11aaaa);
     testorb1.setPosition({ x: -60, y: 0 });
-    // testorb1.setPosition({ x: 0, y: -60 });
     Game.current_scene.add(testorb1.mesh);
 
-    var testorb2 = makeOrb(35, 0x00ff00);
+    var testorb2 = makeOrb(35, 0xaa1111);
     testorb2.setPosition({ x: 60, y: 0 });
-    // testorb2.setPosition({ x: 0, y: 60 });
     Game.current_scene.add(testorb2.mesh);
 
-    Game.current_scene.add(Game.container.mesh);
-
-    testorb1.velocity.x = 6;
+    
+    var testorb3 = makeOrb(30, 0x1111aa);
+    testorb3.setPosition({ x: 0, y: 100 });
+    Game.current_scene.add(testorb3.mesh);
+    
+    testorb1.velocity.x = -6;
     testorb1.velocity.y = 6;
 
 
