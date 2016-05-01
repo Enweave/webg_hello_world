@@ -149,17 +149,18 @@ $(document).ready(function () {
 var __setupLevel = function () {
     container = makeWalls();
 
-    var testorb1 = makeOrb(30,  0xffdddd);
+    var testorb1 = makeOrb(60,  0xff0000);
+    testorb1.setPosition({ x: -200, y: 0 });
     Game.current_scene.add(testorb1.mesh);
 
-    var testorb2 = makeOrb(30, 0xff0000);
-    testorb2.setPosition({ x: 210, y: 20 });
+    var testorb2 = makeOrb(70, 0x00ff00);
+    testorb2.setPosition({ x: 200, y: 0 });
     Game.current_scene.add(testorb2.mesh);
 
     Game.current_scene.add(container.mesh);
 
-    testorb1.velocity.x = 6;
-    testorb1.velocity.y = 6;
+    testorb1.velocity.x = 12;
+    testorb1.velocity.y = 3;
     
 
     Game.addTask(function () {
