@@ -1,5 +1,10 @@
 "use strict";
 
+var $body = $("body");
+var getWindowWidth = function() {
+    return $body.width();  
+};
+
 var Game = {
     settings: {
         aspect_desktop: 16 / 9,
@@ -39,7 +44,7 @@ var Game = {
         Game.current_scene = new THREE.Scene();
         var light = new THREE.PointLight(0xFFFFFF);
         light.position.set(500, 500, 1000);
-        light.lookAt(0, 0, 0);
+        light.lookAt(new THREE.Vector3(0,0,0));
         Game.current_scene.add(light);
         Game.objects.lights[Game.counters.lights_global_counter] = light;
     },
@@ -52,7 +57,7 @@ var Game = {
             1000
         );
         camera.position.z = INITIAL_CAMERA_POSITION_Z;
-        camera.lookAt(0, 0, 0);
+        camera.lookAt(new THREE.Vector3(0,0,0));
         Game.current_camera = camera;
     },
 
@@ -89,6 +94,7 @@ var Game = {
     },
 
     initialize: function () {
+        Game.settings.default_width = getWindowWidth();
         Game.setupRenderer();
         Game.setupScene();
         Game.setupCamera();
@@ -116,6 +122,16 @@ var __tasksCall = function () {
 
 $(document).ready(function () {
     Game.initialize();
+    
+    $(window).resize(function() {
+        Game.current_camera.updateProjectionMatrix();
+        var width = getWindowWidth();
+        Game.renderer.setSize(
+            width,
+            Math.round(width / Game.settings.aspect_desktop)
+        );
+    });
+    
     var gui = new dat.GUI();
     
     var p = Math.PI;
@@ -140,31 +156,11 @@ var __setupLevel = function () {
     testorb2.setPosition({ x: 210, y: 20 });
     Game.current_scene.add(testorb2.mesh);
 
-    var testorb3 = makeOrb(30, 0xff4444);
-    testorb3.setPosition({ x: -150, y: -150 });
-    Game.current_scene.add(testorb3.mesh);
-    
-    var testorb4 = makeOrb(50, 0xff3333);
-    testorb4.setPosition({ x: 150, y: 150 });
-    Game.current_scene.add(testorb4.mesh);
-
-    var testorb5 = makeOrb(81, 0xff1111);
-    testorb5.setPosition({ x: 200, y: -200 });
-    Game.current_scene.add(testorb5.mesh);
-
-
     Game.current_scene.add(container.mesh);
 
     testorb1.velocity.x = 6;
     testorb1.velocity.y = 6;
     
-    testorb2.velocity.x = 5;
-    testorb2.velocity.y = 4;
-
-    testorb3.velocity.x = -12;
-    testorb3.velocity.y = -12;
-
-    testorb5.velocity.x = -12;
 
     Game.addTask(function () {
         var intersection_hash = {};
@@ -204,12 +200,12 @@ var __setupLevel = function () {
                        test_orb.velocity = cr.velocityB;
                        intersection_hash[i] = ii;
                        if (orb.volume > test_orb.volume) {
-                           orb.grow(1);
-                           test_orb.shrink(1);
+                           orb.grow(3);
+                           test_orb.shrink(3);
                        } 
                        if (orb.volume < test_orb.volume) {
-                           orb.shrink(1);
-                           test_orb.grow(1);
+                           orb.shrink(3);
+                           test_orb.grow(3);
                        }
                     }                    
                 }
@@ -235,6 +231,64 @@ var RESTITUTION_ORB = 0.8;
 var INITIAL_CAMERA_POSITION_Z = 860;
 var MINIMAL_VOLUME = 1; 
 var container;
+
+var MIN_VELOCITY = 0.1;
+
+var clampVelocity = function (new_velocity) {
+    return - MIN_VELOCITY < new_velocity && new_velocity < MIN_VELOCITY ? 0 : new_velocity;
+    // return new_velocity;
+};
+
+var CollisionResponce = function (e, a, b) {
+
+    var d = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+
+    var nx = (b.x - a.x) / d;
+    var ny = (b.y - a.y) / d;
+    
+    var p = (1+e) * (a.velocity.x * nx + a.velocity.y * ny - b.velocity.x * nx - b.velocity.y * ny) /
+        (a.volume + b.volume);
+    return {
+        velocityA: {
+            x: a.velocity.x - p * a.volume * nx,
+            y: a.velocity.y - p * a.volume * ny
+        },
+        velocityB: {
+            x: b.velocity.x + p * b.volume * nx,
+            y: b.velocity.y + p * b.volume * ny
+        }
+
+    };
+};
+
+var getIntersectionPoint = function (x0, y0, r0, x1, y1, r1) {
+    var dx, dy, d;
+
+    /* dx and dy are the vertical and horizontal distances between
+     * the circle centers.
+     */
+    dx = x1 - x0;
+    dy = y1 - y0;
+
+    /* Determine the straight-line distance between the centers. */
+    d = Math.sqrt((dy * dy) + (dx * dx));
+
+    /* Check for solvability. */
+    if (d > (r0 + r1)) {
+        /* no solution. circles do not intersect. */
+        return -1;
+    }
+    if (d < Math.abs(r0 - r1)) {
+        /* no solution. one circle is contained in the other */
+        return 0;
+    }
+
+    if (d <= 0) {
+        return -1;
+    }
+    
+    return 1;
+};
 
 var setNewVelocityAfterWallHit = function(velocity) {
     return clampVelocity(velocity * RESTITUTION_WALL);
