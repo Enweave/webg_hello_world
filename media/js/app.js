@@ -214,12 +214,12 @@ $(document).ready(function () {
 var __setupLevel = function () {
     Game.container = makeWalls();
 
-    var testorb1 = makeOrb(50, 0xff0000);
+    var testorb1 = makeOrb(30, 0xff0000);
     testorb1.setPosition({ x: -60, y: 0 });
     // testorb1.setPosition({ x: 0, y: -60 });
     Game.current_scene.add(testorb1.mesh);
 
-    var testorb2 = makeOrb(55, 0x00ff00);
+    var testorb2 = makeOrb(35, 0x00ff00);
     testorb2.setPosition({ x: 60, y: 0 });
     // testorb2.setPosition({ x: 0, y: 60 });
     Game.current_scene.add(testorb2.mesh);
@@ -426,7 +426,7 @@ var makeOrb = function (volume, color) {
         },
         die: function () {
             Game.current_scene.remove(new_orb.mesh);
-            delete Game[new_orb.id];
+            delete Game.objects.orbs[new_orb.id];
         }
     };
     Game.objects.orbs[Game.counters.orbs_global_counter] = new_orb;
