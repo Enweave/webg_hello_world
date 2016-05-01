@@ -1,11 +1,23 @@
 "use strict";
 
-var $body = $("body");
-var getWindowWidth = function() {
-    return $body.width();  
-};
+var MINIMAL_VOLUME = 1;
+var MIN_VELOCITY = 0.1;
+
+var DEFAULT_ORB_WIDTH_SEGMENTS = 22;
+var DEFAULT_ORB_HEIGHT_SEGEMNTS = 22;
+
+var RESTITUTION_WALL = 0.9;
+var RESTITUTION_ORB = 0.6;
+
+var WALL_WIDTH = 2;
+var WALL_LENGTH = 300;
+var WALL_HEIGHT = 2;
+
+var INITIAL_CAMERA_POSITION_Z = 860;
 
 var Game = {
+    is_running: false,
+    __running: false,
     settings: {
         aspect_desktop: 16 / 9,
         default_width: 1200,
@@ -18,16 +30,26 @@ var Game = {
 
     counters: {
         lights_global_counter: 0,
-        geometry_global_counter: 0
+        orbs_global_counter: 0,
+        tasks_count: 0,
+        _reset: function () {
+            Game.counters.lights_global_counter = 0;
+            Game.counters.orbs_global_counter = 0;
+        }
     },
 
     objects: {
-        lights: []
+        lights: {},
+        orbs: {},
+        _reset: function () {
+            Game.objects.lights = {};
+            Game.objects.orbs = {};
+        }
     },
 
     container: undefined,
 
-    tasks_count: 0,
+
     tasks: [],
 
     mainLoopHandlerId: undefined,
@@ -44,9 +66,14 @@ var Game = {
         Game.current_scene = new THREE.Scene();
         var light = new THREE.PointLight(0xFFFFFF);
         light.position.set(500, 500, 1000);
-        light.lookAt(new THREE.Vector3(0,0,0));
+        light.lookAt(new THREE.Vector3(0, 0, 0));
         Game.current_scene.add(light);
         Game.objects.lights[Game.counters.lights_global_counter] = light;
+        Game.counters.lights_global_counter++;
+        var light2 = new THREE.AmbientLight(0x555555);
+        Game.current_scene.add(light2);
+        Game.objects.lights[Game.counters.lights_global_counter] = light2;
+        Game.counters.lights_global_counter++;
     },
 
     setupCamera: function () {
@@ -57,10 +84,21 @@ var Game = {
             1000
         );
         camera.position.z = INITIAL_CAMERA_POSITION_Z;
-        camera.lookAt(new THREE.Vector3(0,0,0));
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
         Game.current_camera = camera;
     },
 
+    __renderCall: function () {
+        if (Game.renderer) {
+            // Game.current_camera.updateProjectionMatrix();
+            Game.renderer.render(Game.current_scene, Game.current_camera);
+        }
+    },
+    __tasksCall: function () {
+        for (var i = 0; i < Game.counters.tasks_count; i++) {
+            Game.tasks[i]();
+        }
+    },
     startMainLoop: function () {
         var now;
         var then = Date.now();
@@ -75,22 +113,37 @@ var Game = {
 
             if (delta > frame_time) {
                 then = now - (delta % frame_time);
-                __tasksCall();
-                __renderCall();
+                Game.__tasksCall();
+                Game.__renderCall();
             }
         };
+
+        Game.__running = true;
         handler();
     },
 
     stopMainLoop: function () {
         if (Game.mainLoopHandlerId) {
+            Game.__running = false;
             window.cancelAnimationFrame(Game.mainLoopHandlerId);
         }
     },
 
+    toggleExecution: function () {
+
+        if (Game.__running === true) {
+            Game.stopMainLoop();
+            Game.is_running = false;
+        } else {
+            Game.startMainLoop();
+            Game.is_running = true;
+        }
+
+    },
+
     addTask: function (task) {
         Game.tasks.push(task);
-        Game.tasks_count = Game.tasks.length;
+        Game.counters.tasks_count = Game.tasks.length;
     },
 
     initialize: function () {
@@ -103,27 +156,38 @@ var Game = {
 
 
         Game.startMainLoop();
+    },
+
+    restart: function () {
+        Game.stopMainLoop();
+
+        Game.counters._reset();
+        Game.objects._reset();
+
+        delete Game.container;
+
+        Game.tasks = [];
+        Game.mainLoopHandlerId = undefined;
+
+        delete Game.current_scene;
+
+        Game.setupScene();
+
+        __setupLevel();
+
+        Game.startMainLoop();
     }
 };
 
-var __renderCall = function () {
-    if (Game.renderer) {
-        // Game.current_camera.updateProjectionMatrix();
-        Game.renderer.render(Game.current_scene, Game.current_camera);
-    }
+var $body = $("body");
+var getWindowWidth = function () {
+    return $body.width();
 };
-
-var __tasksCall = function () {
-    for (var i = 0; i < Game.tasks_count; i++) {
-        Game.tasks[i]();
-    }
-};
-
 
 $(document).ready(function () {
     Game.initialize();
-    
-    $(window).resize(function() {
+
+    $(window).resize(function () {
         Game.current_camera.updateProjectionMatrix();
         var width = getWindowWidth();
         Game.renderer.setSize(
@@ -131,167 +195,177 @@ $(document).ready(function () {
             Math.round(width / Game.settings.aspect_desktop)
         );
     });
-    
+
     var gui = new dat.GUI();
-    
-    var p = Math.PI;
+
     var cameraGui = gui.addFolder("camera position");
-    cameraGui.add(Game.current_camera.position, "x",-600,600);
-    cameraGui.add(Game.current_camera.position, "y",-600,600);
-    cameraGui.add(Game.current_camera.position, "z", 0, 1000);
-    cameraGui.add(Game.current_camera.rotation, "x",-p,p);
-    cameraGui.add(Game.current_camera.rotation, "y",-p,p);
-    
-    cameraGui.open();
+    cameraGui.add(Game.current_camera.position, "x", -600, 600).listen();
+    cameraGui.add(Game.current_camera.position, "y", -600, 600).listen();
+    cameraGui.add(Game.current_camera.position, "z", 0, 1000).listen();
+    var gameGui = gui.addFolder("game");
+    gameGui.add(Game, "toggleExecution");
+    gameGui.add(Game, "is_running").listen();
+    gameGui.add(Game.settings, "fps_limit", 1, 60);
+    gameGui.add(Game, "restart");
+    gameGui.open();
 });
 
 
 var __setupLevel = function () {
-    container = makeWalls();
+    Game.container = makeWalls();
 
-    var testorb1 = makeOrb(60,  0xff0000);
-    testorb1.setPosition({ x: -200, y: 0 });
+    var testorb1 = makeOrb(50, 0xff0000);
+    testorb1.setPosition({ x: -60, y: 0 });
+    // testorb1.setPosition({ x: 0, y: -60 });
     Game.current_scene.add(testorb1.mesh);
 
-    var testorb2 = makeOrb(70, 0x00ff00);
-    testorb2.setPosition({ x: 200, y: 0 });
+    var testorb2 = makeOrb(55, 0x00ff00);
+    testorb2.setPosition({ x: 60, y: 0 });
+    // testorb2.setPosition({ x: 0, y: 60 });
     Game.current_scene.add(testorb2.mesh);
 
-    Game.current_scene.add(container.mesh);
+    Game.current_scene.add(Game.container.mesh);
 
-    testorb1.velocity.x = 12;
-    testorb1.velocity.y = 3;
-    
+    testorb1.velocity.x = 6;
+    testorb1.velocity.y = 6;
+
 
     Game.addTask(function () {
         var intersection_hash = {};
-        $.each(orbs, function (i, orb) {
-            
+        $.each(Game.objects.orbs, function (i, orb) {
+
             var new_pos = orb.getNextPosition();
-            if (new_pos.x + orb.volume >= container.east) {
+            if (new_pos.x + orb.volume >= Game.container.east) {
                 orb.velocity.x = - setNewVelocityAfterWallHit(orb.velocity.x);
             } else {
-                if (new_pos.x - orb.volume <= container.west) {
+                if (new_pos.x - orb.volume <= Game.container.west) {
                     orb.velocity.x = - setNewVelocityAfterWallHit(orb.velocity.x);
                 }
             }
-            if (new_pos.y + orb.volume >= container.north) {
+            if (new_pos.y + orb.volume >= Game.container.north) {
                 orb.velocity.y = - setNewVelocityAfterWallHit(orb.velocity.y);
             } else {
-                if (new_pos.y - orb.volume <= container.south) {
+                if (new_pos.y - orb.volume <= Game.container.south) {
                     orb.velocity.y = - setNewVelocityAfterWallHit(orb.velocity.y);
                 }
             }
-            
-            $.each(orbs, function(ii, test_orb) {
-                
+
+            $.each(Game.objects.orbs, function (ii, test_orb) {
+
                 if (intersection_hash[ii] !== i) {
                     var has_intersection = getIntersectionPoint(
-                        orb.x,orb.y, orb.volume,
+                        orb.x, orb.y, orb.volume,
                         test_orb.x, test_orb.y, test_orb.volume
                     );
 
-                    if (has_intersection>0) {
-                       var cr = CollisionResponce(
-                           RESTITUTION_ORB,
-                           orb,
-                           test_orb
-                       );
-                       orb.velocity = cr.velocityA;
-                       test_orb.velocity = cr.velocityB;
-                       intersection_hash[i] = ii;
-                       if (orb.volume > test_orb.volume) {
-                           orb.grow(3);
-                           test_orb.shrink(3);
-                       } 
-                       if (orb.volume < test_orb.volume) {
-                           orb.shrink(3);
-                           test_orb.grow(3);
-                       }
-                    }                    
+                    if (has_intersection !== false) {
+                        var cr = CollisionResponce(
+                            RESTITUTION_ORB,
+                            orb,
+                            test_orb,
+                            has_intersection
+                        );
+                        orb.velocity = clampVelocityVector(cr.velocityA);
+                        test_orb.velocity = clampVelocityVector(cr.velocityB);
+                        intersection_hash[i] = ii;
+                        if (orb.volume > test_orb.volume) {
+                            orb.grow(3);
+                            test_orb.shrink(3);
+                        }
+                        if (orb.volume < test_orb.volume) {
+                            orb.shrink(3);
+                            test_orb.grow(3);
+                        }
+                    }
                 }
-                
+
             });
-            
+
             orb.updatePositionStep();
         });
     });
 };
 
-
-// TODO: remove from global
-var ORB_GLOBAL_COUNTER = 0;
-
-var orbs = {};
-
-var DEFAULT_ORB_WIDTH_SEGMENTS = 22;
-var DEFAULT_ORB_HEIGHT_SEGEMNTS = 22;
-var RESTITUTION_WALL = 0.9;
-var RESTITUTION_ORB = 0.8;
-
-var INITIAL_CAMERA_POSITION_Z = 860;
-var MINIMAL_VOLUME = 1; 
-var container;
-
-var MIN_VELOCITY = 0.1;
-
+// Utils;
 var clampVelocity = function (new_velocity) {
     return - MIN_VELOCITY < new_velocity && new_velocity < MIN_VELOCITY ? 0 : new_velocity;
-    // return new_velocity;
 };
 
-var CollisionResponce = function (e, a, b) {
+var clampVelocityVector = function (new_velocity) {
+    return {
+        x: - MIN_VELOCITY < new_velocity.x && new_velocity.x < MIN_VELOCITY ? 0 : new_velocity.x,
+        y: - MIN_VELOCITY < new_velocity.y && new_velocity.y < MIN_VELOCITY ? 0 : new_velocity.y
+    };
+};
 
-    var d = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+var CollisionResponce = function (e, a, b, ip) {
+    var ma = a.volume;
+    var mb = b.volume;
+    var Ia = 1;
+    var Ib = 1;
 
-    var nx = (b.x - a.x) / d;
-    var ny = (b.y - a.y) / d;
-    
-    var p = (1+e) * (a.velocity.x * nx + a.velocity.y * ny - b.velocity.x * nx - b.velocity.y * ny) /
-        (a.volume + b.volume);
+    var ra = {
+        x: ip.x - a.x,
+        y: ip.y - a.y
+    };
+    var rb = {
+        x: ip.x - b.x,
+        y: ip.y - b.y
+    };
+
+    var vai = a.velocity;
+    var vbi = b.velocity;
+    var k = 1 / (ma * ma) + 2 / (ma * mb) + 1 / (mb * mb) - ra.x * ra.x / (ma * Ia) - rb.x * rb.x / (ma * Ib) - ra.y * ra.y / (ma * Ia)
+        - ra.y * ra.y / (mb * Ia) - ra.x * ra.x / (mb * Ia) - rb.x * rb.x / (mb * Ib) - rb.y * rb.y / (ma * Ib)
+        - rb.y * rb.y / (mb * Ib) + ra.y * ra.y * rb.x * rb.x / (Ia * Ib) + ra.x * ra.x * rb.y * rb.y / (Ia * Ib) - 2 * ra.x * ra.y * rb.x * rb.y / (Ia * Ib);
+
+    var Jx = ((e + 1) / k) * (
+        (vai.x - vbi.x) * (1 / ma - ra.x * ra.x / Ia + 1 / mb - rb.x * rb.x / Ib)
+    ) - ((e + 1) / k) * ((vai.y - vbi.y) * (ra.x * ra.y / Ia + rb.x * rb.y / Ib));
+    var Jy = - ((e + 1) / k) * (
+        (vai.x - vbi.x) * (ra.x * ra.y / Ia + rb.x * rb.y / Ib)
+    ) + (e + 1) / k * (vai.y - vbi.y) * (1 / ma - ra.y * ra.y / Ia + 1 / mb - rb.y * rb.y / Ib);
+
     return {
         velocityA: {
-            x: a.velocity.x - p * a.volume * nx,
-            y: a.velocity.y - p * a.volume * ny
+            x: vai.x - Jx / ma,
+            y: vai.y - Jy / ma
         },
         velocityB: {
-            x: b.velocity.x + p * b.volume * nx,
-            y: b.velocity.y + p * b.volume * ny
+            x: vbi.x + Jx / mb,
+            y: vbi.y + Jy / mb
         }
-
     };
 };
 
 var getIntersectionPoint = function (x0, y0, r0, x1, y1, r1) {
-    var dx, dy, d;
+    var dx, dy, d, a;
 
-    /* dx and dy are the vertical and horizontal distances between
-     * the circle centers.
-     */
     dx = x1 - x0;
     dy = y1 - y0;
 
-    /* Determine the straight-line distance between the centers. */
     d = Math.sqrt((dy * dy) + (dx * dx));
 
-    /* Check for solvability. */
     if (d > (r0 + r1)) {
-        /* no solution. circles do not intersect. */
-        return -1;
+        return false;
     }
     if (d < Math.abs(r0 - r1)) {
-        /* no solution. one circle is contained in the other */
-        return 0;
+        return false;
     }
 
     if (d <= 0) {
-        return -1;
+        return false;
     }
-    
-    return 1;
+
+    a = ((r0 * r0) - (r1 * r1) + (d * d)) / (2.0 * d);
+
+    return {
+        x: x0 + (dx * a / d),
+        y: y0 + (dy * a / d)
+    };
 };
 
-var setNewVelocityAfterWallHit = function(velocity) {
+var setNewVelocityAfterWallHit = function (velocity) {
     return clampVelocity(velocity * RESTITUTION_WALL);
 };
 
@@ -301,7 +375,7 @@ var makeOrb = function (volume, color) {
     var material = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5, metalness: 0.1 });
     var geometry = new THREE.SphereGeometry(volume, DEFAULT_ORB_WIDTH_SEGMENTS, DEFAULT_ORB_HEIGHT_SEGEMNTS);
     var new_orb = {
-        id: ORB_GLOBAL_COUNTER,
+        id: Game.counters.orbs_global_counter,
         x: 0,
         y: 0,
         volume: volume,
@@ -323,10 +397,10 @@ var makeOrb = function (volume, color) {
             new_orb.mesh.geometry.dispose();
             new_orb.mesh.geometry = new THREE.SphereGeometry(value, DEFAULT_ORB_WIDTH_SEGMENTS, DEFAULT_ORB_HEIGHT_SEGEMNTS);
         },
-        grow: function(value) {
+        grow: function (value) {
             new_orb.setVolume(new_orb.volume + value);
         },
-        shrink: function(value) {
+        shrink: function (value) {
             var new_volume = new_orb.volume - value;
             if (new_volume < MINIMAL_VOLUME) {
                 new_orb.die();
@@ -350,39 +424,34 @@ var makeOrb = function (volume, color) {
             new_orb.mesh.position.x = new_orb.x;
             new_orb.mesh.position.y = new_orb.y;
         },
-        die: function() {
+        die: function () {
             Game.current_scene.remove(new_orb.mesh);
-            delete orbs[new_orb.id];
+            delete Game[new_orb.id];
         }
     };
-
-    orbs[ORB_GLOBAL_COUNTER] = new_orb;
-
-    ORB_GLOBAL_COUNTER++;
+    Game.objects.orbs[Game.counters.orbs_global_counter] = new_orb;
+    Game.counters.orbs_global_counter++;
     return new_orb;
 };
 
-
-var wall_width = 2;
-var wall_length = 600;
 
 var makeWalls = function () {
     var walls_mesh = new THREE.Object3D();
 
     var material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
 
-    var north_wall = new THREE.Mesh(new THREE.BoxGeometry(wall_length, wall_width, 12), material);
+    var north_wall = new THREE.Mesh(new THREE.BoxGeometry(WALL_LENGTH, WALL_WIDTH, WALL_HEIGHT), material);
     walls_mesh.add(north_wall);
-    var east_wall = new THREE.Mesh(new THREE.BoxGeometry(wall_width, wall_length, 12), material);
+    var east_wall = new THREE.Mesh(new THREE.BoxGeometry(WALL_WIDTH, WALL_LENGTH, WALL_HEIGHT), material);
     walls_mesh.add(east_wall);
 
-    var south_wall = new THREE.Mesh(new THREE.BoxGeometry(wall_length, wall_width, 12), material);
+    var south_wall = new THREE.Mesh(new THREE.BoxGeometry(WALL_LENGTH, WALL_WIDTH, WALL_HEIGHT), material);
     walls_mesh.add(south_wall);
-    var west_wall = new THREE.Mesh(new THREE.BoxGeometry(wall_width, wall_length, 12), material);
+    var west_wall = new THREE.Mesh(new THREE.BoxGeometry(WALL_WIDTH, WALL_LENGTH, WALL_HEIGHT), material);
     walls_mesh.add(west_wall);
 
-    var half_wall_length = wall_length / 2;
-    var half_wall_width = wall_width / 2;
+    var half_wall_length = WALL_LENGTH / 2;
+    var half_wall_width = WALL_WIDTH / 2;
     north_wall.position.y = half_wall_length + half_wall_width;
     east_wall.position.x = half_wall_length + half_wall_width;
     south_wall.position.y = -half_wall_length - half_wall_width;
