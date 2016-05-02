@@ -341,9 +341,12 @@ var playerMove = function (e) {
         cp.x = cp.x + cam.x;
         cp.y = cp.y + cam.y;
         d = Math.sqrt(Math.pow((cp.x - playable_orb.x), 2) + Math.pow((cp.y - playable_orb.y), 2));
+        console.log(cp,playable_orb.x,playable_orb.y,"||",d,playable_orb.volume);
         if (d < playable_orb.volume) {
+            console.log("stop");
             playaStop();
         } else {
+            console.log("move!");
             kx = (cp.x - playable_orb.x) / d;
             ky = (cp.y - playable_orb.y) / d;
 
