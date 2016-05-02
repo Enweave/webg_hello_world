@@ -6,6 +6,7 @@ var MIN_VELOCITY = 0.1;
 
 var DEFAULT_ORB_WIDTH_SEGMENTS = 22;
 var DEFAULT_ORB_HEIGHT_SEGEMNTS = 22;
+var DEFAULT_ORB_COLOR = 0x444444;
 
 var RESTITUTION_WALL = 0.9;
 var RESTITUTION_ORB = 0.6;
@@ -14,7 +15,7 @@ var WALL_WIDTH = 2;
 var WALL_LENGTH = 700;
 var WALL_HEIGHT = 1;
 
-var INITIAL_CAMERA_POSITION_Z = 860;
+var INITIAL_CAMERA_POSITION_Z = 1860;
 
 var Game = {
     is_running: true,
@@ -81,10 +82,10 @@ var Game = {
 
     setupCamera: function () {
         var camera = new THREE.PerspectiveCamera(
-            45,
+            22,
             Game.settings.aspect_desktop,
             0.1,
-            1000
+            2000
         );
         camera.position.z = INITIAL_CAMERA_POSITION_Z;
         camera.lookAt(new THREE.Vector3(0, 0, 0));
@@ -162,7 +163,7 @@ var Game = {
     addOrb: function (args) {
         var params = $.extend({
             volume: 10,
-            color: 0x222222,
+            color: DEFAULT_ORB_COLOR,
             x: 0,
             y: 0,
             velocity_x: 0,
@@ -308,7 +309,7 @@ $doc.ready(function () {
     var cameraGui = gui.addFolder("camera position");
     cameraGui.add(Game.current_camera.position, "x", -600, 600);
     cameraGui.add(Game.current_camera.position, "y", -600, 600);
-    cameraGui.add(Game.current_camera.position, "z", 0, 1000);
+    cameraGui.add(Game.current_camera.position, "z", 0, 3000);
     var gameGui = gui.addFolder("game");
     gameGui.add(Game, "toggleExecution");
     gameGui.add(Game, "is_running").listen();
@@ -325,10 +326,11 @@ var getClickPosition = function (event) {
     var rect = $screen[0].getBoundingClientRect();
     var w = rect.right - rect.left;
     var h = rect.bottom - rect.top;
+
     return {
 
-        x: (event.clientX - rect.left) - w / 2,
-        y: - (event.clientY - rect.top) + h / 2
+        x: (event.clientX - rect.left)/w * 2 - 1,
+        y: - (event.clientY + rect.top)/h *2 + 1
     };
 };
 
@@ -337,16 +339,25 @@ var playerMove = function (e) {
     if (playable_orb && Game.current_camera) {
         var d, cp, kx, ky, cam;
         cp = getClickPosition(e);
-        cam = Game.current_camera.position;
-        cp.x = cp.x + cam.x;
-        cp.y = cp.y + cam.y;
-        d = Math.sqrt(Math.pow((cp.x - playable_orb.x), 2) + Math.pow((cp.y - playable_orb.y), 2));
+        cam = Game.current_camera;
+        var vector = new THREE.Vector3();
+
+        vector.set(cp.x,cp.y,0.5);
+        vector.unproject( cam );
+        var dir = vector.sub( cam.position ).normalize();
+
+        var distance = - cam.position.z / dir.z;
+        var pos = cam.position.clone().add( dir.multiplyScalar( distance ) );
+
+        var dx = (pos.x - playable_orb.x);
+        var dy = (pos.y - playable_orb.y);
+
+        d = Math.sqrt(dx * dx + dy * dy);
         if (d < playable_orb.volume) {
             playaStop();
         } else {
-            kx = (cp.x - playable_orb.x) / d;
-            ky = (cp.y - playable_orb.y) / d;
-
+            kx = dx / d;
+            ky = dy / d;
             playable_orb.velocity.x = playa_velocity * kx;
             playable_orb.velocity.y = playa_velocity * ky;
         }
@@ -484,7 +495,7 @@ var setNewVelocityAfterWallHit = function (velocity) {
 };
 
 var makeOrb = function (volume, color) {
-    color = typeof (color) === "undefined" ? 0x000000 : color;
+    color = typeof (color) === "undefined" ? DEFAULT_ORB_COLOR : color;
     volume = typeof (volume) === "undefined" ? 10 : volume;
     var material = new THREE.MeshStandardMaterial({
         color: color,
