@@ -48,8 +48,9 @@ var Game = {
         }
     },
 
+    assets: {},
+    
     container: undefined,
-
 
     tasks: [],
 
@@ -161,7 +162,7 @@ var Game = {
     addOrb: function (args) {
         var params = $.extend({
             volume: 10,
-            color: 0x000000,
+            color: 0x222222,
             x: 0,
             y: 0,
             velocity_x: 0,
@@ -178,13 +179,13 @@ var Game = {
         Game.setupRenderer();
         Game.setupScene();
         Game.setupCamera();
+        loadAssets();
 
+    },
+    postInitialize: function () {
         __setupLevel();
-
-
         Game.startMainLoop();
     },
-
     restart: function () {
         Game.stopMainLoop();
 
@@ -211,6 +212,8 @@ var __setupLevel = function () {
     Game.container = makeWalls();
     Game.current_scene.add(Game.container.mesh);
 
+    
+
     var orbMatrix = generateRandomOrbs(64,8);
     $.each(orbMatrix, function (oi, op) {
         Game.addOrb({
@@ -220,7 +223,8 @@ var __setupLevel = function () {
         });
     });
     var moving_orb = Game.objects.orbs[Math.round((Game.counters.orbs_global_counter - 1) * Math.random())];
-
+    
+    moving_orb.material.color.setHex(0xff2222);
     moving_orb.velocity.x = 10;
     moving_orb.velocity.y = 10;
 
@@ -316,6 +320,26 @@ $(document).ready(function () {
     gameGui.add(window, "APPROACH_DISTANCE", 0, 10);
     gameGui.open();
 });
+
+
+var loadAssets = function () {
+    var loader = new THREE.TextureLoader();
+
+    // load a resource
+    loader.load("media/textures/orb.jpg",
+        function ( texture ) {
+            Game.assets.orb_texture = texture;
+            console.log("assets loaded!");
+            Game.postInitialize();
+        },
+        function ( xhr ) {
+            console.log( (xhr.loaded / xhr.total * 100) + "% loaded" );
+        },
+        function ( xhr ) {
+            console.log("An error happened");
+        }
+    );
+};
 
 
 // Utils;
@@ -426,7 +450,10 @@ var makeOrb = function (volume, color) {
         roughness: 0.5,
         metalness: 0.6,
         transparent: true,
-        opacity: 0.9
+        // opacity: 0.9,
+        map : Game.assets.orb_texture,
+        bumpMap : Game.assets.orb_texture,
+        // lightMapIntensity : 2
         // side: THREE.BackSide
     });
     var geometry = new THREE.SphereGeometry(volume, DEFAULT_ORB_WIDTH_SEGMENTS, DEFAULT_ORB_HEIGHT_SEGEMNTS);
