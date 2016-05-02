@@ -1,5 +1,6 @@
 "use strict";
 
+var APPROACH_DISTANCE = 4;
 var MINIMAL_VOLUME = 8;
 var MIN_VELOCITY = 0.1;
 
@@ -9,14 +10,14 @@ var DEFAULT_ORB_HEIGHT_SEGEMNTS = 22;
 var RESTITUTION_WALL = 0.9;
 var RESTITUTION_ORB = 0.6;
 
-var WALL_WIDTH = 10;
-var WALL_LENGTH = 500;
-var WALL_HEIGHT = 2;
+var WALL_WIDTH = 2;
+var WALL_LENGTH = 700;
+var WALL_HEIGHT = 1;
 
 var INITIAL_CAMERA_POSITION_Z = 860;
 
 var Game = {
-    is_running: false,
+    is_running: true,
     __running: false,
     settings: {
         aspect_desktop: 16 / 9,
@@ -56,6 +57,7 @@ var Game = {
 
     setupRenderer: function () {
         Game.renderer = new THREE.WebGLRenderer({ canvas: $(".screen")[0] });
+        Game.renderer.setClearColor(0xffffff);
         Game.renderer.setSize(
             Game.settings.default_width,
             Math.round(Game.settings.default_width / Game.settings.aspect_desktop)
@@ -146,6 +148,31 @@ var Game = {
         Game.counters.tasks_count = Game.tasks.length;
     },
 
+    /** @description Create new orb and add it to scene.  
+    * @param {object} params - orb parameters.
+    * @param {number} params.volume - orb volume(radius).
+    * @param {hex} params.color - orb color.
+    * @param {number} params.x - orb position x.
+    * @param {number} params.y - orb position y.
+    * @param {object} params.velocity - orb velocity vector.
+    * @param {number} params.velocity.x - orb velocity x.
+    * @param {number} params.velocity.y - orb velocity y.
+    */
+    addOrb: function (args) {
+        var params = $.extend({
+            volume: 10,
+            color: 0x000000,
+            x: 0,
+            y: 0,
+            velocity_x: 0,
+            velocity_y: 0
+        }, args);
+
+        var orb = makeOrb(params.volume, params.color);
+        orb.setPosition({ x: params.x, y: params.y });
+        orb.velocity = { x: params.velocity_x, y: params.velocity_y };
+        Game.current_scene.add(orb.mesh);
+    },
     initialize: function () {
         Game.settings.default_width = getWindowWidth();
         Game.setupRenderer();
@@ -179,11 +206,88 @@ var Game = {
     }
 };
 
-var $body = $("body");
-var getWindowWidth = function () {
-    return $body.width();
+
+var __setupLevel = function () {
+    Game.container = makeWalls();
+    Game.current_scene.add(Game.container.mesh);
+
+    var orbMatrix = generateRandomOrbs(64,8);
+    $.each(orbMatrix, function (oi, op) {
+        Game.addOrb({
+            volume: op.r,
+            x: op.x,
+            y: op.y
+        });
+    });
+    var moving_orb = Game.objects.orbs[Math.round((Game.counters.orbs_global_counter - 1) * Math.random())];
+
+    moving_orb.velocity.x = 10;
+    moving_orb.velocity.y = 10;
+
+    Game.addTask(function () {
+        var intersection_hash = {};
+        $.each(Game.objects.orbs, function (i, orb) {
+
+            var new_pos = orb.getNextPosition();
+            if (new_pos.x + orb.volume >= Game.container.east) {
+                orb.velocity.x = - setNewVelocityAfterWallHit(orb.velocity.x);
+                orb.x = Game.container.east - (orb.velocity.x + orb.volume);
+            } else {
+                if (new_pos.x - orb.volume <= Game.container.west) {
+                    orb.velocity.x = - setNewVelocityAfterWallHit(orb.velocity.x);
+                    orb.x = Game.container.west + (orb.velocity.x + orb.volume);
+                }
+            }
+            if (new_pos.y + orb.volume >= Game.container.north) {
+                orb.velocity.y = - setNewVelocityAfterWallHit(orb.velocity.y);
+                orb.y = Game.container.north - (orb.velocity.y + orb.volume);
+            } else {
+                if (new_pos.y - orb.volume <= Game.container.south) {
+                    orb.velocity.y = - setNewVelocityAfterWallHit(orb.velocity.y);
+                    orb.y = Game.container.south + (orb.velocity.y + orb.volume);
+                }
+            }
+
+            $.each(Game.objects.orbs, function (ii, test_orb) {
+
+                if (intersection_hash[ii] !== i) {
+                    var has_intersection = getIntersectionPoint(
+                        orb.x, orb.y, orb.volume,
+                        test_orb.x, test_orb.y, test_orb.volume
+                    );
+
+                    if (has_intersection.approach !== false) {
+                        if (orb.volume > test_orb.volume) {
+                            orb.grow(1);
+                            test_orb.shrink(3);
+                        }
+                        if (orb.volume < test_orb.volume) {
+                            orb.shrink(3);
+                            test_orb.grow(1);
+                        }
+                        if (has_intersection.collide !== false) {
+                            intersection_hash[i] = ii;
+                            var cr = CollisionResponce(
+                                RESTITUTION_ORB,
+                                orb,
+                                test_orb,
+                                has_intersection
+                            );
+                            orb.velocity = clampVelocityVector(cr.velocityA);
+                            test_orb.velocity = clampVelocityVector(cr.velocityB);
+                        }
+                    }
+                }
+
+            });
+
+            orb.updatePositionStep();
+        });
+    });
 };
 
+
+// Game start
 $(document).ready(function () {
     Game.initialize();
 
@@ -199,100 +303,35 @@ $(document).ready(function () {
     var gui = new dat.GUI({ width: 320 });
 
     var cameraGui = gui.addFolder("camera position");
-    cameraGui.add(Game.current_camera.position, "x", -600, 600).listen();
-    cameraGui.add(Game.current_camera.position, "y", -600, 600).listen();
-    cameraGui.add(Game.current_camera.position, "z", 0, 1000).listen();
+    cameraGui.add(Game.current_camera.position, "x", -600, 600);
+    cameraGui.add(Game.current_camera.position, "y", -600, 600);
+    cameraGui.add(Game.current_camera.position, "z", 0, 1000);
     var gameGui = gui.addFolder("game");
     gameGui.add(Game, "toggleExecution");
     gameGui.add(Game, "is_running").listen();
     gameGui.add(Game.settings, "fps_limit", 1, 60);
     gameGui.add(Game, "restart");
-    gameGui.add(window, "RESTITUTION_ORB",0,1);
-    gameGui.add(window, "RESTITUTION_WALL",0,1);
+    gameGui.add(window, "RESTITUTION_ORB", 0, 1);
+    gameGui.add(window, "RESTITUTION_WALL", 0, 1);
+    gameGui.add(window, "APPROACH_DISTANCE", 0, 10);
     gameGui.open();
 });
 
 
-var __setupLevel = function () {
-    Game.container = makeWalls();
-    Game.current_scene.add(Game.container.mesh);
-    
-    var testorb1 = makeOrb(30, 0x11aaaa);
-    testorb1.setPosition({ x: -60, y: 0 });
-    Game.current_scene.add(testorb1.mesh);
-
-    var testorb2 = makeOrb(35, 0xaa1111);
-    testorb2.setPosition({ x: 60, y: 0 });
-    Game.current_scene.add(testorb2.mesh);
-
-    
-    var testorb3 = makeOrb(30, 0x1111aa);
-    testorb3.setPosition({ x: 0, y: 100 });
-    Game.current_scene.add(testorb3.mesh);
-    
-    testorb1.velocity.x = -6;
-    testorb1.velocity.y = 6;
-
-
-    Game.addTask(function () {
-        var intersection_hash = {};
-        $.each(Game.objects.orbs, function (i, orb) {
-
-            var new_pos = orb.getNextPosition();
-            if (new_pos.x + orb.volume >= Game.container.east) {
-                orb.velocity.x = - setNewVelocityAfterWallHit(orb.velocity.x);
-            } else {
-                if (new_pos.x - orb.volume <= Game.container.west) {
-                    orb.velocity.x = - setNewVelocityAfterWallHit(orb.velocity.x);
-                }
-            }
-            if (new_pos.y + orb.volume >= Game.container.north) {
-                orb.velocity.y = - setNewVelocityAfterWallHit(orb.velocity.y);
-            } else {
-                if (new_pos.y - orb.volume <= Game.container.south) {
-                    orb.velocity.y = - setNewVelocityAfterWallHit(orb.velocity.y);
-                }
-            }
-
-            $.each(Game.objects.orbs, function (ii, test_orb) {
-
-                if (intersection_hash[ii] !== i) {
-                    var has_intersection = getIntersectionPoint(
-                        orb.x, orb.y, orb.volume,
-                        test_orb.x, test_orb.y, test_orb.volume
-                    );
-
-                    if (has_intersection !== false) {
-                        var cr = CollisionResponce(
-                            RESTITUTION_ORB,
-                            orb,
-                            test_orb,
-                            has_intersection
-                        );
-                        orb.velocity = clampVelocityVector(cr.velocityA);
-                        test_orb.velocity = clampVelocityVector(cr.velocityB);
-                        intersection_hash[i] = ii;
-                        if (orb.volume > test_orb.volume) {
-                            orb.grow(3);
-                            test_orb.shrink(3);
-                        }
-                        if (orb.volume < test_orb.volume) {
-                            orb.shrink(3);
-                            test_orb.grow(3);
-                        }
-                    }
-                }
-
-            });
-
-            orb.updatePositionStep();
-        });
-    });
-};
-
 // Utils;
 var clampVelocity = function (new_velocity) {
     return - MIN_VELOCITY < new_velocity && new_velocity < MIN_VELOCITY ? 0 : new_velocity;
+};
+
+
+var getWindowWidth = function () {
+    if (typeof (window.__$body) === "undefined") {
+        window.__$body = $("body");
+    }
+    getWindowWidth = function () {
+        return window.__$body.width();
+    };
+    return window.__$body.width();
 };
 
 var clampVelocityVector = function (new_velocity) {
@@ -342,31 +381,37 @@ var CollisionResponce = function (e, a, b, ip) {
     };
 };
 
+
 var getIntersectionPoint = function (x0, y0, r0, x1, y1, r1) {
-    var dx, dy, d, a;
+    var dx, dy, d, dapp, a;
+    var ip = {
+        approach: false,
+        collide: false
+    };
 
     dx = x1 - x0;
     dy = y1 - y0;
 
     d = Math.sqrt((dy * dy) + (dx * dx));
-
+    dapp = d - (r0 + r1);
+    ip.approach = dapp < APPROACH_DISTANCE ? true : false;
     if (d > (r0 + r1)) {
-        return false;
+        return ip;
     }
     if (d < Math.abs(r0 - r1)) {
-        return false;
+        return ip;
     }
 
     if (d <= 0) {
-        return false;
+        return ip;
     }
 
     a = ((r0 * r0) - (r1 * r1) + (d * d)) / (2.0 * d);
 
-    return {
-        x: x0 + (dx * a / d),
-        y: y0 + (dy * a / d)
-    };
+    ip.collide = true;
+    ip.x = x0 + (dx * a / d);
+    ip.y = y0 + (dy * a / d);
+    return ip;
 };
 
 var setNewVelocityAfterWallHit = function (velocity) {
@@ -374,9 +419,16 @@ var setNewVelocityAfterWallHit = function (velocity) {
 };
 
 var makeOrb = function (volume, color) {
-    color = typeof (color) === "undefined" ? 0xadadad : color;
+    color = typeof (color) === "undefined" ? 0x000000 : color;
     volume = typeof (volume) === "undefined" ? 10 : volume;
-    var material = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5, metalness: 0.1 });
+    var material = new THREE.MeshStandardMaterial({
+        color: color,
+        roughness: 0.5,
+        metalness: 0.6,
+        transparent: true,
+        opacity: 0.9
+        // side: THREE.BackSide
+    });
     var geometry = new THREE.SphereGeometry(volume, DEFAULT_ORB_WIDTH_SEGMENTS, DEFAULT_ORB_HEIGHT_SEGEMNTS);
     var new_orb = {
         id: Game.counters.orbs_global_counter,
@@ -442,7 +494,7 @@ var makeOrb = function (volume, color) {
 var makeWalls = function () {
     var walls_mesh = new THREE.Object3D();
 
-    var material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    var material = new THREE.MeshBasicMaterial({ color: 0x000000 });
 
     var north_wall = new THREE.Mesh(new THREE.BoxGeometry(WALL_LENGTH, WALL_WIDTH, WALL_HEIGHT), material);
     walls_mesh.add(north_wall);
@@ -467,4 +519,34 @@ var makeWalls = function () {
         south: -half_wall_length,
         west: -half_wall_length
     };
+};
+
+var generateRandomOrbs = function (count, factor) {
+    var _place = function () {
+        return Math.random() < 0.5 ? true : false;
+    };
+
+    var orb_placement = [];
+
+    var y0 = WALL_LENGTH / 2;
+    var step = Math.round(WALL_LENGTH / factor);
+    var x0, cy, cx;
+    for (var y = 0; y < factor; y++) {
+        cy = y0 - Math.round(step / 2);
+        x0 = -WALL_LENGTH / 2;
+        for (var x = 0; x < factor; x++) {
+            if (_place() === true && count > 0) {
+                count--;
+                cx = x0 + Math.round(step / 2);
+                orb_placement.push({
+                    x: cx,
+                    y: cy,
+                    r: Math.round(step * (0.2 + Math.random() * 0.3))
+                });
+            }
+            x0 += step;
+        }
+        y0 -= step;
+    }
+    return orb_placement;
 };
