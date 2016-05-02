@@ -27,10 +27,6 @@
     },
     "extends": "eslint:recommended",
     "rules": {
-      // "indent": [
-      // "error",
-      // "tab"
-      // ],
       "linebreak-style": [
         "error",
         "windows"
@@ -44,5 +40,8 @@
         "always"
       ]
     }
+  },
+  "devDependencies": {
+    "grunt-contrib-connect": "^1.0.2"
   }
 }
