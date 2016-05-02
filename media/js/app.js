@@ -49,7 +49,7 @@ var Game = {
     },
 
     assets: {},
-    
+
     container: undefined,
 
     tasks: [],
@@ -212,9 +212,9 @@ var __setupLevel = function () {
     Game.container = makeWalls();
     Game.current_scene.add(Game.container.mesh);
 
-    
 
-    var orbMatrix = generateRandomOrbs(64,8);
+
+    var orbMatrix = generateRandomOrbs(64, 8);
     $.each(orbMatrix, function (oi, op) {
         Game.addOrb({
             volume: op.r,
@@ -222,11 +222,9 @@ var __setupLevel = function () {
             y: op.y
         });
     });
-    var moving_orb = Game.objects.orbs[Math.round((Game.counters.orbs_global_counter - 1) * Math.random())];
-    
-    moving_orb.material.color.setHex(0xff2222);
-    moving_orb.velocity.x = 10;
-    moving_orb.velocity.y = 10;
+    playable_orb = Game.objects.orbs[Math.round((Game.counters.orbs_global_counter - 1) * Math.random())];
+
+    playable_orb.material.color.setHex(0xff2222);
 
     Game.addTask(function () {
         var intersection_hash = {};
@@ -292,7 +290,8 @@ var __setupLevel = function () {
 
 
 // Game start
-$(document).ready(function () {
+var $doc = $(document);
+$doc.ready(function () {
     Game.initialize();
 
     $(window).resize(function () {
@@ -318,35 +317,78 @@ $(document).ready(function () {
     gameGui.add(window, "RESTITUTION_ORB", 0, 1);
     gameGui.add(window, "RESTITUTION_WALL", 0, 1);
     gameGui.add(window, "APPROACH_DISTANCE", 0, 10);
-    gameGui.open();
+    // gameGui.open();
 });
 
+var $screen = $(".screen").eq(0);
+var getClickPosition = function (event) {
+    var rect = $screen[0].getBoundingClientRect();
+    var w = rect.right - rect.left;
+    var h = rect.bottom - rect.top;
+    return {
 
-var loadAssets = function () {
-    var loader = new THREE.TextureLoader();
-
-    // load a resource
-    loader.load("media/textures/orb.jpg",
-        function ( texture ) {
-            Game.assets.orb_texture = texture;
-            console.log("assets loaded!");
-            Game.postInitialize();
-        },
-        function ( xhr ) {
-            console.log( (xhr.loaded / xhr.total * 100) + "% loaded" );
-        },
-        function ( xhr ) {
-            console.log("An error happened");
-        }
-    );
+        x: (event.clientX - rect.left) - w / 2,
+        y: - (event.clientY - rect.top) + h / 2
+    };
 };
 
+var playable_orb;
+var playerMove = function (e) {
+    if (playable_orb && Game.current_camera) {
+        var d, cp, kx, ky, cam;
+        cp = getClickPosition(e);
+        cam = Game.current_camera.position;
+        cp.x = cp.x + cam.x;
+        cp.y = cp.y + cam.y;
+        d = Math.sqrt(Math.pow((cp.x - playable_orb.x), 2) + Math.pow((cp.y - playable_orb.y), 2));
+        if (d < playable_orb.volume) {
+            playaStop();
+        } else {
+            kx = (cp.x - playable_orb.x) / d;
+            ky = (cp.y - playable_orb.y) / d;
+
+            playable_orb.velocity.x = playa_velocity * kx;
+            playable_orb.velocity.y = playa_velocity * ky;
+        }
+
+    }
+};
+
+var playaStop = function () {
+    if (playable_orb) {
+        playable_orb.velocity.x = 0;
+        playable_orb.velocity.y = 0;
+    }
+};
+
+var playa_velocity = 4;
+$screen.on("click", function (e) {
+    playerMove(e);
+});
 
 // Utils;
 var clampVelocity = function (new_velocity) {
     return - MIN_VELOCITY < new_velocity && new_velocity < MIN_VELOCITY ? 0 : new_velocity;
 };
 
+var loadAssets = function () {
+    var loader = new THREE.TextureLoader();
+
+    // load a resource
+    loader.load("media/textures/orb.jpg",
+        function (texture) {
+            Game.assets.orb_texture = texture;
+            console.log("assets loaded!");
+            Game.postInitialize();
+        },
+        function (xhr) {
+            console.log((xhr.loaded / xhr.total * 100) + "% loaded");
+        },
+        function (xhr) {
+            console.log("An error happened");
+        }
+    );
+};
 
 var getWindowWidth = function () {
     if (typeof (window.__$body) === "undefined") {
@@ -405,7 +447,6 @@ var CollisionResponce = function (e, a, b, ip) {
     };
 };
 
-
 var getIntersectionPoint = function (x0, y0, r0, x1, y1, r1) {
     var dx, dy, d, dapp, a;
     var ip = {
@@ -450,11 +491,8 @@ var makeOrb = function (volume, color) {
         roughness: 0.5,
         metalness: 0.6,
         transparent: true,
-        // opacity: 0.9,
-        map : Game.assets.orb_texture,
-        bumpMap : Game.assets.orb_texture,
-        // lightMapIntensity : 2
-        // side: THREE.BackSide
+        map: Game.assets.orb_texture,
+        bumpMap: Game.assets.orb_texture
     });
     var geometry = new THREE.SphereGeometry(volume, DEFAULT_ORB_WIDTH_SEGMENTS, DEFAULT_ORB_HEIGHT_SEGEMNTS);
     var new_orb = {
@@ -516,7 +554,6 @@ var makeOrb = function (volume, color) {
     Game.counters.orbs_global_counter++;
     return new_orb;
 };
-
 
 var makeWalls = function () {
     var walls_mesh = new THREE.Object3D();
