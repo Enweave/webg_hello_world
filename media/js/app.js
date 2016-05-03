@@ -1,6 +1,6 @@
 "use strict";
 
-var APPROACH_DISTANCE = 4;
+var APPROACH_DISTANCE = 1;
 var MINIMAL_VOLUME = 8;
 var MIN_VELOCITY = 0.1;
 
@@ -9,10 +9,10 @@ var DEFAULT_ORB_HEIGHT_SEGEMNTS = 22;
 var DEFAULT_ORB_COLOR = 0x444444;
 
 var RESTITUTION_WALL = 0.9;
-var RESTITUTION_ORB = 0.6;
+var RESTITUTION_ORB = 0.9;
 
 var WALL_WIDTH = 2;
-var WALL_LENGTH = 700;
+var WALL_LENGTH = 1500;
 var WALL_HEIGHT = 1;
 
 var INITIAL_CAMERA_POSITION_Z = 1860;
@@ -21,9 +21,10 @@ var Game = {
     is_running: true,
     __running: false,
     settings: {
-        aspect_desktop: 16 / 9,
+        view_aspect: 1,
         default_width: 1200,
-        fps_limit: 60
+        fps_limit: 60,
+        camera_dead_zone: 3
     },
 
     renderer: undefined,
@@ -62,7 +63,7 @@ var Game = {
         Game.renderer.setClearColor(0xffffff);
         Game.renderer.setSize(
             Game.settings.default_width,
-            Math.round(Game.settings.default_width / Game.settings.aspect_desktop)
+            Math.round(Game.settings.default_width / Game.settings.view_aspect)
         );
     },
 
@@ -83,9 +84,9 @@ var Game = {
     setupCamera: function () {
         var camera = new THREE.PerspectiveCamera(
             22,
-            Game.settings.aspect_desktop,
+            Game.settings.view_aspect,
             0.1,
-            2000
+            100000
         );
         camera.position.z = INITIAL_CAMERA_POSITION_Z;
         camera.lookAt(new THREE.Vector3(0, 0, 0));
@@ -175,10 +176,11 @@ var Game = {
         orb.setPosition({ x: params.x, y: params.y });
         orb.velocity = { x: params.velocity_x, y: params.velocity_y };
         Game.current_scene.add(orb.mesh);
-        return orb
+        return orb;
     },
     initialize: function () {
         Game.settings.default_width = getWindowWidth();
+        Game.settings.view_aspect = getAspect();
         Game.setupRenderer();
         Game.setupScene();
         Game.setupCamera();
@@ -215,8 +217,6 @@ var __setupLevel = function () {
     Game.container = makeWalls();
     Game.current_scene.add(Game.container.mesh);
 
-
-
     var orbMatrix = generateRandomOrbs(64, 8);
     $.each(orbMatrix, function (oi, op) {
         Game.addOrb({
@@ -226,10 +226,30 @@ var __setupLevel = function () {
         });
     });
 
-//    playable_orb = Game.addOrb({volume: 40});
     playable_orb = Game.objects.orbs[Math.round((Game.counters.orbs_global_counter - 1) * Math.random())];
 
     playable_orb.material.color.setHex(0xff2222);
+
+    playable_orb.die = function() {
+        Game.current_scene.remove(playable_orb.mesh);
+
+        delete Game.objects.orbs[playable_orb.id];
+        playable_orb = undefined;
+    };
+
+    Game.addTask(function() {
+        if (playable_orb) {
+            var dx = Game.current_camera.position.x - playable_orb.x;
+            var dy = Game.current_camera.position.y - playable_orb.y;
+            if (Math.abs(dx) > Game.settings.camera_dead_zone) {
+                Game.current_camera.position.x-= dx/Game.settings.camera_dead_zone;
+            }
+            if (Math.abs(dy) > Game.settings.camera_dead_zone) {
+                Game.current_camera.position.y-= dy/Game.settings.camera_dead_zone;
+            }
+        }
+
+    });
 
     Game.addTask(function () {
         var intersection_hash = {};
@@ -300,20 +320,22 @@ $doc.ready(function () {
     Game.initialize();
 
     $(window).resize(function () {
-        Game.current_camera.updateProjectionMatrix();
+
+        Game.settings.view_aspect = getAspect();
+        Game.current_camera.aspect = Game.settings.view_aspect;
         var width = getWindowWidth();
         Game.renderer.setSize(
             width,
-            Math.round(width / Game.settings.aspect_desktop)
+            Math.round(width / Game.settings.view_aspect)
         );
+        Game.current_camera.updateProjectionMatrix();
     });
 
     var gui = new dat.GUI({ width: 320 });
 
     var cameraGui = gui.addFolder("camera position");
-    cameraGui.add(Game.current_camera.position, "x", -600, 600);
-    cameraGui.add(Game.current_camera.position, "y", -600, 600);
     cameraGui.add(Game.current_camera.position, "z", 0, 3000);
+    cameraGui.add(Game.settings, "camera_dead_zone");
     var gameGui = gui.addFolder("game");
     gameGui.add(Game, "toggleExecution");
     gameGui.add(Game, "is_running").listen();
@@ -322,7 +344,8 @@ $doc.ready(function () {
     gameGui.add(window, "RESTITUTION_ORB", 0, 1);
     gameGui.add(window, "RESTITUTION_WALL", 0, 1);
     gameGui.add(window, "APPROACH_DISTANCE", 0, 10);
-    // gameGui.open();
+
+    gameGui.open();
 });
 
 var $screen = $(".screen").eq(0);
@@ -409,14 +432,33 @@ var loadAssets = function () {
     );
 };
 
+
+
 var getWindowWidth = function () {
-    if (typeof (window.__$body) === "undefined") {
-        window.__$body = $("body");
-    }
-    getWindowWidth = function () {
-        return window.__$body.width();
-    };
-    return window.__$body.width();
+//    if (typeof (window.__$body) === "undefined") {
+//        window.__$body = $(window);
+//    }
+//    getWindowWidth = function () {
+//        return window.__$body.innerWidth();
+//    };
+//    return window.__$body.innerWidth();
+    return window.innerWidth;
+};
+
+
+var getWindowHeight = function () {
+//    if (typeof (window.__$body) === "undefined") {
+//        window.__$body = $(window);
+//    }
+//    getWindowHeight = function () {
+//        return window.__$body.innerHeight();
+//    };
+//    return window.__$body.innerHeight();
+    return window.innerHeight;
+};
+
+var getAspect = function() {
+    return getWindowWidth()/getWindowHeight();
 };
 
 var clampVelocityVector = function (new_velocity) {
