@@ -151,14 +151,15 @@ var Game = {
     },
 
     /** @description Create new orb and add it to scene.  
-    * @param {object} params - orb parameters.
-    * @param {number} params.volume - orb volume(radius).
-    * @param {hex} params.color - orb color.
-    * @param {number} params.x - orb position x.
-    * @param {number} params.y - orb position y.
-    * @param {object} params.velocity - orb velocity vector.
-    * @param {number} params.velocity.x - orb velocity x.
-    * @param {number} params.velocity.y - orb velocity y.
+    * @param {object} args - orb parameters.
+    * @param {number} args.volume - orb volume(radius).
+    * @param {hex} args.color - orb color.
+    * @param {number} args.x - orb position x.
+    * @param {number} args.y - orb position y.
+    * @param {object} args.velocity - orb velocity vector.
+    * @param {number} args.velocity.x - orb velocity x.
+    * @param {number} args.velocity.y - orb velocity y.
+    * @return {object} orb - return created orb
     */
     addOrb: function (args) {
         var params = $.extend({
@@ -174,6 +175,7 @@ var Game = {
         orb.setPosition({ x: params.x, y: params.y });
         orb.velocity = { x: params.velocity_x, y: params.velocity_y };
         Game.current_scene.add(orb.mesh);
+        return orb
     },
     initialize: function () {
         Game.settings.default_width = getWindowWidth();
@@ -223,6 +225,8 @@ var __setupLevel = function () {
             y: op.y
         });
     });
+
+//    playable_orb = Game.addOrb({volume: 40});
     playable_orb = Game.objects.orbs[Math.round((Game.counters.orbs_global_counter - 1) * Math.random())];
 
     playable_orb.material.color.setHex(0xff2222);
@@ -324,13 +328,16 @@ $doc.ready(function () {
 var $screen = $(".screen").eq(0);
 var getClickPosition = function (event) {
     var rect = $screen[0].getBoundingClientRect();
-    var w = rect.right - rect.left;
-    var h = rect.bottom - rect.top;
-
+    var w = $screen.width();
+    var h = $screen.height();
+    var x = (event.clientX - rect.left)/w * 2 - 1;
+    var y = - ((event.clientY - rect.top)/h * 2) + 1;
+    if (Math.abs(y)>1) {
+        console.warn("mouse input not normalized!", event.clientY, rect.top, rect.bottom);
+    }
     return {
-
-        x: (event.clientX - rect.left)/w * 2 - 1,
-        y: - (event.clientY + rect.top)/h *2 + 1
+        x: x,
+        y: y
     };
 };
 
@@ -342,7 +349,7 @@ var playerMove = function (e) {
         cam = Game.current_camera;
         var vector = new THREE.Vector3();
 
-        vector.set(cp.x,cp.y,0.5);
+        vector.set(cp.x,cp.y,0);
         vector.unproject( cam );
         var dir = vector.sub( cam.position ).normalize();
 
