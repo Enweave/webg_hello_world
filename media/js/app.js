@@ -346,6 +346,7 @@ var playerMove = function (e) {
     if (playable_orb && Game.current_camera) {
         var d, cp, kx, ky, cam;
         cp = getClickPosition(e);
+
         cam = Game.current_camera;
         var vector = new THREE.Vector3();
 
