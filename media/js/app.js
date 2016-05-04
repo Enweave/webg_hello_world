@@ -560,6 +560,7 @@ var makeOrb = function (volume, color) {
         id: Game.counters.orbs_global_counter,
         x: 0,
         y: 0,
+        initial_volume: volume,
         volume: volume,
         velocity: {
             x: 0,
@@ -575,9 +576,12 @@ var makeOrb = function (volume, color) {
             new_orb.mesh.position.y = new_orb.y;
         },
         setVolume: function (value) {
+
+            var scale_factor = value/new_orb.initial_volume;
             new_orb.volume = value;
-            new_orb.mesh.geometry.dispose();
-            new_orb.mesh.geometry = new THREE.SphereGeometry(value, DEFAULT_ORB_WIDTH_SEGMENTS, DEFAULT_ORB_HEIGHT_SEGEMNTS);
+            new_orb.mesh.scale.set(scale_factor,scale_factor,scale_factor);
+            //new_orb.mesh.geometry.dispose();
+            //new_orb.mesh.geometry = new THREE.SphereGeometry(value, DEFAULT_ORB_WIDTH_SEGMENTS, DEFAULT_ORB_HEIGHT_SEGEMNTS);
         },
         grow: function (value) {
             new_orb.setVolume(new_orb.volume + value);
