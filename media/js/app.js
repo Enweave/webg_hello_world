@@ -16,6 +16,7 @@ var WALL_LENGTH = 1500;
 var WALL_HEIGHT = 1;
 
 var INITIAL_CAMERA_POSITION_Z = 1860;
+var camera_lookAhead = 30;
 
 var Game = {
     is_running: true,
@@ -24,7 +25,7 @@ var Game = {
         view_aspect: 1,
         default_width: 1200,
         fps_limit: 60,
-        camera_dead_zone: 3
+        camera_lookAhead: camera_lookAhead
     },
 
     renderer: undefined,
@@ -90,7 +91,9 @@ var Game = {
         );
         camera.position.z = INITIAL_CAMERA_POSITION_Z;
         camera.lookAt(new THREE.Vector3(0, 0, 0));
+
         Game.current_camera = camera;
+        Game.current_camera._focus = { x: camera.position.x, y: camera.position.y };
     },
 
     __renderCall: function () {
@@ -239,14 +242,17 @@ var __setupLevel = function () {
 
     Game.addTask(function() {
         if (playable_orb) {
-            var dx = Game.current_camera.position.x - playable_orb.x;
-            var dy = Game.current_camera.position.y - playable_orb.y;
-            if (Math.abs(dx) > Game.settings.camera_dead_zone) {
-                Game.current_camera.position.x-= dx/Game.settings.camera_dead_zone;
+
+            var dx = Game.current_camera._focus.x - playable_orb.x;
+            var dy = Game.current_camera._focus.y - playable_orb.y;
+            if (Math.abs(dx) > 1) {
+                Game.current_camera._focus.x -= dx/Game.settings.camera_lookAhead;
             }
-            if (Math.abs(dy) > Game.settings.camera_dead_zone) {
-                Game.current_camera.position.y-= dy/Game.settings.camera_dead_zone;
+            Game.current_camera.position.x = Game.current_camera._focus.x - 2*dx;
+            if (Math.abs(dy) > 1) {
+               Game.current_camera._focus.y -= dy/Game.settings.camera_lookAhead;
             }
+            Game.current_camera.position.y = Game.current_camera._focus.y - 2*dy;
         }
 
     });
@@ -334,8 +340,8 @@ $doc.ready(function () {
     var gui = new dat.GUI({ width: 320 });
 
     var cameraGui = gui.addFolder("camera position");
-    cameraGui.add(Game.current_camera.position, "z", 0, 3000);
-    cameraGui.add(Game.settings, "camera_dead_zone");
+    cameraGui.add(Game.current_camera.position, "z", 0, 3000).listen();
+    cameraGui.add(Game.settings, "camera_lookAhead");
     var gameGui = gui.addFolder("game");
     gameGui.add(Game, "toggleExecution");
     gameGui.add(Game, "is_running").listen();
@@ -407,6 +413,23 @@ var playa_velocity = 4;
 $screen.on("click", function (e) {
     playerMove(e);
 });
+//DOMMouseScroll
+
+var camz = INITIAL_CAMERA_POSITION_Z;
+var onmouseWheel = function(e) {
+    camz = Game.current_camera.position.z;
+    var delta = camz - ( (camz/30) * Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail))) );
+
+    camz = 0 < delta && delta < 3000 ? delta : camz;
+
+    Game.current_camera.position.z = camz;
+    return false;
+};
+
+$screen.on("mousewheel", function(e){
+    onmouseWheel(e);
+});
+
 
 // Utils;
 var clampVelocity = function (new_velocity) {
@@ -651,10 +674,14 @@ var makeWalls = function () {
 };
 
 var generateRandomOrbs = function (count, factor) {
-    var _place = function () {
-        return Math.random() < 0.5 ? true : false;
-    };
-
+    var _place;
+    if (count === 1) {
+        _place = function() { return true };
+    } else {
+        _place = function () {
+            return Math.random() < 0.5 ? true : false;
+        };
+    }
     var orb_placement = [];
 
     var y0 = WALL_LENGTH / 2;
