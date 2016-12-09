@@ -430,6 +430,10 @@ $screen.on("mousewheel", function(e){
     onmouseWheel(e);
 });
 
+$screen.on("DOMMouseScroll", function(e){
+    onmouseWheel(e);
+});
+
 
 // Utils;
 var clampVelocity = function (new_velocity) {
