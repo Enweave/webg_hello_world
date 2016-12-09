@@ -300,7 +300,7 @@ var __setupLevel = function () {
                         }
                         if (has_intersection.collide !== false) {
                             intersection_hash[i] = ii;
-                            var cr = CollisionResponce(
+                            var cr = CollisionResponse(
                                 RESTITUTION_ORB,
                                 orb,
                                 test_orb,
@@ -347,7 +347,7 @@ $doc.ready(function () {
     gameGui.add(Game, "is_running").listen();
     gameGui.add(Game.settings, "fps_limit", 1, 60);
     gameGui.add(Game, "restart");
-    gameGui.add(window, "RESTITUTION_ORB", 0, 1);
+    gameGui.add(window, "RESTITUTION_ORB", -1, 1);
     gameGui.add(window, "RESTITUTION_WALL", 0, 1);
     gameGui.add(window, "APPROACH_DISTANCE", 0, 10);
 
@@ -495,7 +495,7 @@ var clampVelocityVector = function (new_velocity) {
     };
 };
 
-var CollisionResponce = function (e, a, b, ip) {
+var CollisionResponse = function (e, a, b, ip) {
     var ma = a.volume;
     var mb = b.volume;
     var Ia = 1;
