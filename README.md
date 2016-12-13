@@ -6,5 +6,5 @@
 * `bower install`
 
 ### To play:
-* start dev-server: `grunt connect`
+* start dev-server: `grunt runserver`
 * navigate your browser to `127.0.0.1:8000`

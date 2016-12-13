@@ -10,9 +10,8 @@
 
     <title>WebGL hello</title>
     <meta name="viewport" content="width=device-width">
-    <link rel="shortcut icon" href="/media/img/favicon.png">
-    <link rel="stylesheet" type="text/css" href="/bower_components/reset-css/reset.css">
-    <link rel="stylesheet" type="text/css" href="/media/stylesheets/style.css">
+    <link rel="shortcut icon" href="/dist/img/favicon.png">
+    <link rel="stylesheet" type="text/css" href="/dist/css/style.css">
 </head>
 
 <body>
@@ -20,10 +19,16 @@
     <canvas id="screen" class="screen"></canvas>
 </div>
 
-<script type="text/javascript" src="/bower_components/zepto/zepto.min.js"></script>
-<script type="text/javascript" src="/bower_components/three.js/three.min.js"></script>
-<script type="text/javascript" src="/bower_components/dat.gui/dat.gui.min.js"></script>
+<script type="text/javascript" src="/dist/js/vendor.js"></script>
 
-<script type="text/javascript" src="/media/js/app.js"></script>
+<script type="text/javascript" src="/src/js/settings.js"></script>
+
+<script type="text/javascript" src="/src/js/modules/utils/generateRandomOrbs.js"></script>
+<script type="text/javascript" src="/src/js/modules/utils/getClickPosition.js"></script>
+
+<script type="text/javascript" src="/src/js/modules/physics/getCollisionResponse.js"></script>
+<script type="text/javascript" src="/src/js/modules/physics/getIntersectionPoint.js"></script>
+
+<script type="text/javascript" src="/src/js/app.js"></script>
 </body>
 </html>

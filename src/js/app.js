@@ -1,31 +1,11 @@
-"use strict";
-
-var APPROACH_DISTANCE = 1;
-var MINIMAL_VOLUME = 8;
-var MIN_VELOCITY = 0.1;
-
-var DEFAULT_ORB_WIDTH_SEGMENTS = 22;
-var DEFAULT_ORB_HEIGHT_SEGEMNTS = 22;
-var DEFAULT_ORB_COLOR = 0x444444;
-
-var RESTITUTION_WALL = 0.9;
-var RESTITUTION_ORB = 0.9;
-
-var WALL_WIDTH = 2;
-var WALL_LENGTH = 1500;
-var WALL_HEIGHT = 1;
-
-var INITIAL_CAMERA_POSITION_Z = 1860;
-var camera_lookAhead = 30;
-
 var Game = {
     is_running: true,
     __running: false,
     settings: {
         view_aspect: 1,
         default_width: 1200,
-        fps_limit: 60,
-        camera_lookAhead: camera_lookAhead
+        fps_limit: FPS_LIMIT,
+        camera_lookAhead: CAMERA_LOOKAHEAD
     },
 
     renderer: undefined,
@@ -300,7 +280,7 @@ var __setupLevel = function () {
                         }
                         if (has_intersection.collide !== false) {
                             intersection_hash[i] = ii;
-                            var cr = CollisionResponse(
+                            var cr = getCollisionResponse(
                                 RESTITUTION_ORB,
                                 orb,
                                 test_orb,
@@ -347,7 +327,7 @@ $doc.ready(function () {
     gameGui.add(Game, "is_running").listen();
     gameGui.add(Game.settings, "fps_limit", 1, 60);
     gameGui.add(Game, "restart");
-    gameGui.add(window, "RESTITUTION_ORB", -1, 1);
+    gameGui.add(window, "RESTITUTION_ORB", 0, 1);
     gameGui.add(window, "RESTITUTION_WALL", 0, 1);
     gameGui.add(window, "APPROACH_DISTANCE", 0, 10);
 
@@ -355,20 +335,6 @@ $doc.ready(function () {
 });
 
 var $screen = $(".screen").eq(0);
-var getClickPosition = function (event) {
-    var rect = $screen[0].getBoundingClientRect();
-    var w = $screen.width();
-    var h = $screen.height();
-    var x = (event.clientX - rect.left)/w * 2 - 1;
-    var y = - ((event.clientY - rect.top)/h * 2) + 1;
-    if (Math.abs(y)>1) {
-        console.warn("mouse input not normalized!", event.clientY, rect.top, rect.bottom);
-    }
-    return {
-        x: x,
-        y: y
-    };
-};
 
 var playable_orb;
 var playerMove = function (e) {
@@ -413,7 +379,7 @@ var playa_velocity = 4;
 $screen.on("click", function (e) {
     playerMove(e);
 });
-//DOMMouseScroll
+
 
 var camz = INITIAL_CAMERA_POSITION_Z;
 var onmouseWheel = function(e) {
@@ -444,7 +410,7 @@ var loadAssets = function () {
     var loader = new THREE.TextureLoader();
 
     // load a resource
-    loader.load("media/textures/orb.jpg",
+    loader.load("dist/textures/orb.jpg",
         function (texture) {
             Game.assets.orb_texture = texture;
             console.log("assets loaded!");
@@ -493,78 +459,6 @@ var clampVelocityVector = function (new_velocity) {
         x: - MIN_VELOCITY < new_velocity.x && new_velocity.x < MIN_VELOCITY ? 0 : new_velocity.x,
         y: - MIN_VELOCITY < new_velocity.y && new_velocity.y < MIN_VELOCITY ? 0 : new_velocity.y
     };
-};
-
-var CollisionResponse = function (e, a, b, ip) {
-    var ma = a.volume;
-    var mb = b.volume;
-    var Ia = 1;
-    var Ib = 1;
-
-    var ra = {
-        x: ip.x - a.x,
-        y: ip.y - a.y
-    };
-    var rb = {
-        x: ip.x - b.x,
-        y: ip.y - b.y
-    };
-
-    var vai = a.velocity;
-    var vbi = b.velocity;
-    var k = 1 / (ma * ma) + 2 / (ma * mb) + 1 / (mb * mb) - ra.x * ra.x / (ma * Ia) - rb.x * rb.x / (ma * Ib) - ra.y * ra.y / (ma * Ia)
-        - ra.y * ra.y / (mb * Ia) - ra.x * ra.x / (mb * Ia) - rb.x * rb.x / (mb * Ib) - rb.y * rb.y / (ma * Ib)
-        - rb.y * rb.y / (mb * Ib) + ra.y * ra.y * rb.x * rb.x / (Ia * Ib) + ra.x * ra.x * rb.y * rb.y / (Ia * Ib) - 2 * ra.x * ra.y * rb.x * rb.y / (Ia * Ib);
-
-    var Jx = ((e + 1) / k) * (
-        (vai.x - vbi.x) * (1 / ma - ra.x * ra.x / Ia + 1 / mb - rb.x * rb.x / Ib)
-    ) - ((e + 1) / k) * ((vai.y - vbi.y) * (ra.x * ra.y / Ia + rb.x * rb.y / Ib));
-    var Jy = - ((e + 1) / k) * (
-        (vai.x - vbi.x) * (ra.x * ra.y / Ia + rb.x * rb.y / Ib)
-    ) + (e + 1) / k * (vai.y - vbi.y) * (1 / ma - ra.y * ra.y / Ia + 1 / mb - rb.y * rb.y / Ib);
-
-    return {
-        velocityA: {
-            x: vai.x - Jx / ma,
-            y: vai.y - Jy / ma
-        },
-        velocityB: {
-            x: vbi.x + Jx / mb,
-            y: vbi.y + Jy / mb
-        }
-    };
-};
-
-var getIntersectionPoint = function (x0, y0, r0, x1, y1, r1) {
-    var dx, dy, d, dapp, a;
-    var ip = {
-        approach: false,
-        collide: false
-    };
-
-    dx = x1 - x0;
-    dy = y1 - y0;
-
-    d = Math.sqrt((dy * dy) + (dx * dx));
-    dapp = d - (r0 + r1);
-    ip.approach = dapp < APPROACH_DISTANCE ? true : false;
-    if (d > (r0 + r1)) {
-        return ip;
-    }
-    if (d < Math.abs(r0 - r1)) {
-        return ip;
-    }
-
-    if (d <= 0) {
-        return ip;
-    }
-
-    a = ((r0 * r0) - (r1 * r1) + (d * d)) / (2.0 * d);
-
-    ip.collide = true;
-    ip.x = x0 + (dx * a / d);
-    ip.y = y0 + (dy * a / d);
-    return ip;
 };
 
 var setNewVelocityAfterWallHit = function (velocity) {
@@ -677,36 +571,3 @@ var makeWalls = function () {
     };
 };
 
-var generateRandomOrbs = function (count, factor) {
-    var _place;
-    if (count === 1) {
-        _place = function() { return true };
-    } else {
-        _place = function () {
-            return Math.random() < 0.5 ? true : false;
-        };
-    }
-    var orb_placement = [];
-
-    var y0 = WALL_LENGTH / 2;
-    var step = Math.round(WALL_LENGTH / factor);
-    var x0, cy, cx;
-    for (var y = 0; y < factor; y++) {
-        cy = y0 - Math.round(step / 2);
-        x0 = -WALL_LENGTH / 2;
-        for (var x = 0; x < factor; x++) {
-            if (_place() === true && count > 0) {
-                count--;
-                cx = x0 + Math.round(step / 2);
-                orb_placement.push({
-                    x: cx,
-                    y: cy,
-                    r: Math.round(step * (0.2 + Math.random() * 0.3))
-                });
-            }
-            x0 += step;
-        }
-        y0 -= step;
-    }
-    return orb_placement;
-};
