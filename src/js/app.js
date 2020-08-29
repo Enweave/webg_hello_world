@@ -142,7 +142,7 @@ var Game = {
                 Game.restart();
                 break;
             case Game.endgame_dialog_choices.lose:
-                alert("You've lost!")
+                alert("You died")
                 Game.restart();
                 break;
         }
