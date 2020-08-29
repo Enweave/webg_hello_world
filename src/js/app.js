@@ -15,10 +15,12 @@ var Game = {
     counters: {
         lights_global_counter: 0,
         orbs_global_counter: 0,
+        non_player_orbs_count: 0,
         tasks_count: 0,
         _reset: function () {
             Game.counters.lights_global_counter = 0;
             Game.counters.orbs_global_counter = 0;
+            Game.counters.non_player_orbs_count = 0;
         }
     },
 
@@ -105,7 +107,6 @@ var Game = {
                 Game.__renderCall();
             }
         };
-
         Game.__running = true;
         handler();
     },
@@ -118,7 +119,6 @@ var Game = {
     },
 
     toggleExecution: function () {
-
         if (Game.__running === true) {
             Game.stopMainLoop();
             Game.is_running = false;
@@ -127,6 +127,25 @@ var Game = {
             Game.is_running = true;
         }
 
+    },
+
+    endgame_dialog_choices: {
+        win: 0,
+        lose: 1
+    },
+
+    endGameDialog: function(dialog_id) {
+        Game.stopMainLoop();
+        switch (dialog_id) {
+            case Game.endgame_dialog_choices.win:
+                alert("You won! great job!")
+                Game.restart();
+                break;
+            case Game.endgame_dialog_choices.lose:
+                alert("You've lost!")
+                Game.restart();
+                break;
+        }
     },
 
     addTask: function (task) {
@@ -159,8 +178,22 @@ var Game = {
         orb.setPosition({ x: params.x, y: params.y });
         orb.velocity = { x: params.velocity_x, y: params.velocity_y };
         Game.current_scene.add(orb.mesh);
+        Game.counters.non_player_orbs_count++;
         return orb;
     },
+
+    removeOrb: function(new_orb, is_enemy) {
+        is_enemy = typeof (is_enemy) === 'undefined';
+        Game.current_scene.remove(new_orb.mesh);
+        delete Game.objects.orbs[new_orb.id];
+        if (is_enemy) {
+            Game.counters.non_player_orbs_count--;
+        }
+        if (Game.counters.non_player_orbs_count === 0) {
+            Game.endGameDialog(Game.endgame_dialog_choices.win);
+        }
+    },
+
     initialize: function () {
         Game.settings.default_width = getWindowWidth();
         Game.settings.view_aspect = getAspect();
@@ -195,7 +228,6 @@ var Game = {
     }
 };
 
-
 var __setupLevel = function () {
     Game.container = makeWalls();
     Game.current_scene.add(Game.container.mesh);
@@ -210,14 +242,13 @@ var __setupLevel = function () {
     });
 
     playable_orb = Game.objects.orbs[Math.round((Game.counters.orbs_global_counter - 1) * Math.random())];
-
+    Game.counters.non_player_orbs_count-=1;
     playable_orb.material.color.setHex(0xff2222);
 
-    playable_orb.die = function() {
-        Game.current_scene.remove(playable_orb.mesh);
-
-        delete Game.objects.orbs[playable_orb.id];
+    playable_orb.die = function() { //todo: inheritance??
+        Game.removeOrb(playable_orb, false);
         playable_orb = undefined;
+        Game.endGameDialog(Game.endgame_dialog_choices.lose);
     };
 
     Game.addTask(function() {
@@ -325,6 +356,7 @@ $doc.ready(function () {
     var gameGui = gui.addFolder("game");
     gameGui.add(Game, "toggleExecution");
     gameGui.add(Game, "is_running").listen();
+    gameGui.add(Game.counters, "non_player_orbs_count").listen();
     gameGui.add(Game.settings, "fps_limit", 1, 60);
     gameGui.add(Game, "restart");
     gameGui.add(window, "RESTITUTION_ORB", 0, 1);
@@ -532,8 +564,9 @@ var makeOrb = function (volume, color) {
             new_orb.mesh.position.y = new_orb.y;
         },
         die: function () {
-            Game.current_scene.remove(new_orb.mesh);
-            delete Game.objects.orbs[new_orb.id];
+            Game.removeOrb(new_orb)
+            // Game.current_scene.remove(new_orb.mesh);
+            // delete Game.objects.orbs[new_orb.id];
         }
     };
     Game.objects.orbs[Game.counters.orbs_global_counter] = new_orb;
